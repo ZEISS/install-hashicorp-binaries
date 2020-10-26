@@ -93,11 +93,11 @@ namespace AsyncScripts
             {
                 throw new InvalidOperationException("Resolving " + sourceUrl + " failed!");
             }
-            WriteLine("  {0} resolved to domain {1}", name, host);
+            // WriteLine("  {0} resolved to domain {1}", name, host);
             IPHostEntry hostInfo = await Dns.GetHostEntryAsync(host);
             foreach (var address in hostInfo.AddressList)
             {
-                WriteLine("  {0} resolved to address {1}", name, address);
+                // WriteLine("  {0} resolved to address {1}", name, address);
             }
             using (WebClient client = new WebClient())
             {
@@ -107,7 +107,7 @@ namespace AsyncScripts
                 client.DownloadProgressChanged += (sender, args) =>
                 {
                     long percent = 100 * args.BytesReceived / args.TotalBytesToReceive;
-                    if (percent % 10 == 0 && percent > lastPercent)
+                    if (percent % 20 == 0 && percent > lastPercent)
                     {
                         double speed = args.TotalBytesToReceive / 1024.0 / 1024.0 / stopwatch.Elapsed.TotalSeconds;
                         if (lastPercent == -1)
@@ -191,7 +191,7 @@ function Install-HashiCorpBinaries {
     }
 
     [string[]]$verifiedArchives = @()
-    [string]$asyncDonwloadArchives = ''
+    [string]$asyncDonwloadFiles = ''
     foreach ($archive in $archives){
         [string]$name, [string]$version = "$archive" -split ":"
         # Check out the latest CLI version
@@ -226,41 +226,50 @@ function Install-HashiCorpBinaries {
             continue
         }
         $verifiedArchives += "${name}:${version}"
-        $asyncDonwloadArchives += "'${downloadUrl}/${name}/${version}/${name}_${version}_${os}_${arch}.zip', '${env:Temp}\${name}_${version}_${os}_${arch}.zip', "
+        $asyncDonwloadFiles += "'${downloadUrl}/${name}/${version}/${name}_${version}_${os}_${arch}.zip', '${env:Temp}\${name}_${version}_${os}_${arch}.zip', "
+        $asyncDonwloadFiles += "'${downloadUrl}/${name}/${version}/${name}_${version}_SHA256SUMS', '${env:Temp}\${name}_${version}_SHA256SUMS', "
     }
 
-    # Download the archives
+    # Download the archives and checksums files
     Write-Host "Fetching ${downloadUrl}/"
-    $asyncDonwloadArchives = $asyncDonwloadArchives.SubString(0, [math]::Max(0, $asyncDonwloadArchives.length - 2))
-    if (-not ([string]::IsNullOrEmpty($asyncDonwloadArchives))){
+    $asyncDonwloadFiles = $asyncDonwloadFiles.SubString(0, [math]::Max(0, $asyncDonwloadFiles.length - 2))
+    if (-not ([string]::IsNullOrEmpty($asyncDonwloadFiles))){
         Import-AsyncScriptsWebDownload
-        [string]$asyncDownload = "[AsyncScripts.Web]::DownloadFiles($asyncDonwloadArchives)"
+        [string]$asyncDownload = "[AsyncScripts.Web]::DownloadFiles($asyncDonwloadFiles)"
         Invoke-Expression $asyncDownload | Out-Null
     }
 
     foreach ($archive in $verifiedArchives){
         [string]$name, [string]$version = "$archive" -split ":"
         Write-Host "Installing ${name} (${version})"
+        # Verify the integrity of the archive
+        [string]$checksum = $(CertUtil -hashfile "${env:Temp}\${name}_${version}_${os}_${arch}.zip" SHA256)[1] -replace ' ',''
+        [string]$regex = "^([A-Fa-f0-9]{64}).*${name}_${version}_${os}_${arch}\.zip$"
+        if ($checksum -ne (Get-Content -Path "${env:Temp}\${name}_${version}_SHA256SUMS" | `
+            Select-String -Pattern $regex -AllMatches | % {$_.Matches.Groups[1]} | % {$_.Value})){
+            throw "FATAL:   Integrity of the archive `"${name}_${version}_${os}_${arch}.zip`" is compromised"
+        }
+        # Clean up the checksums file
+        Remove-Item -Force "${env:Temp}\${name}_${version}_SHA256SUMS"
         # Extract the archive
-        Expand-Archive -Force -Path "${env:Temp}\${name}_${version}_${os}_${arch}.zip" -DestinationPath "${env:Temp}\${name}_${version}_${os}_${arch}"
+        Expand-Archive -Force -Path "${env:Temp}\${name}_${version}_${os}_${arch}.zip" -DestinationPath "${env:Temp}"
+        # Clean up the archive
+        Remove-Item -Force "${env:Temp}\${name}_${version}_${os}_${arch}.zip"
         # Verify the integrity of the executable
-        if (-not ($codeSignThumbprint -eq ((Get-AuthenticodeSignature -FilePath "${env:Temp}\${name}_${version}_${os}_${arch}\${name}.exe").SignerCertificate).thumbprint)){
+        if ($codeSignThumbprint -ne ((Get-AuthenticodeSignature -FilePath "${env:Temp}\${name}.exe").SignerCertificate).thumbprint){
             throw "FATAL:   Integrity of the executable `"${name}.exe`" is compromised"
         }
         # Add the executable to system's PATH
         if (-not (Test-Path "${env:ProgramFiles}\HashiCorp\bin")){
             New-Item -ItemType Directory -Force -Path "${env:ProgramFiles}\HashiCorp\bin" | Out-Null
         }
-        Move-Item -Force -Path "${env:Temp}\${name}_${version}_${os}_${arch}\${name}.exe" "${env:ProgramFiles}\HashiCorp\bin\${name}.exe"
+        Move-Item -Force -Path "${env:Temp}\${name}.exe" "${env:ProgramFiles}\HashiCorp\bin\${name}.exe"
         $pathPS = New-PSSession -ComputerName localhost
         [string]$path = Invoke-Command -Session $pathPS -ScriptBlock { Write-Output "${env:PATH}" }
         Remove-PSSession -Session $pathPS
         if (-not ("$path" -match [Regex]::Escape("${env:ProgramFiles}\HashiCorp\bin"))){
             SETX /M PATH ('{0};{1};' -f "${env:PATH}", "${env:ProgramFiles}\HashiCorp\bin") | Out-Null
         }
-        # Clean up the archive and signature files
-        Remove-Item -Force "${env:Temp}\${name}_${version}_${os}_${arch}.zip"
-        Remove-Item -Force -Recurse "${env:Temp}\${name}_${version}_${os}_${arch}"
         # Verify the CLI installation
         [string]$verify = "${name} version"
         $verifyPS = New-PSSession -ComputerName localhost

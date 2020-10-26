@@ -18,7 +18,9 @@ chmod +x install-hashicorp.sh
 Windows:
 
 ```shell
-Invoke-WebRequest -UseBasicParsing -Uri https://raw.github.com/rembik/install-hashicorp-binaries/master/install-hashicorp.ps1 -OutFile install-hashicorp.ps1
+Invoke-WebRequest -UseBasicParsing `
+-Uri https://raw.github.com/rembik/install-hashicorp-binaries/master/install-hashicorp.ps1 `
+-OutFile install-hashicorp.ps1
 ```
 
 ### Prerequisities
@@ -26,13 +28,14 @@ Invoke-WebRequest -UseBasicParsing -Uri https://raw.github.com/rembik/install-ha
 Linux / MacOS:
 
 * `bash` for executing script
-* `curl` for fetching metadata and archives
-* `unzip` for extracting binary archives
-* `gpg` for verifying binary archive signatures (optional for MacOS)
+* `curl` for fetching metadata and archive
+* `unzip` for extracting binary from archive
+* `shasum` / `sha256sum` for verifying archive checksum
+* `gpg` for verifying checksum signature (optional)
 
 Windows:
 
-* `powershell`/ `pwsh` for executing script
+* `powershell` / `pwsh` for executing script
 
 ### Usage
 
@@ -54,24 +57,22 @@ Windows:
 
 #### Script Details
 
-* Verifies and imports PGP key (for Linux and optional MacOS)
-* Determines binary archive based on
+* Determines pre-compiled binary archive based on
   * specified name
   * specified or latest stable version
   * detected operating system
   * detected CPU architecture
-* Fetchs binary archive
-* Verifies binary archive (for Linux and optional MacOS)
-  * Fetchs signature files
-  * Verifies binary archive signature
-  * Cleans up signature files
-* Extract binary archive
+* Verifies and imports PGP key (optional)
+* Fetchs archive, checksums and signature files
+* Verifies checksums signature (optional)
+* Verifies archive checksum
+* Extract binary from archive
 * Verifies binary code signature (for MacOS and Windows)
 * Adds binary to system's PATH
   * Moves binary to `/usr/local/bin` (for Linux and MacOS)
   * Moves binary to `${env:ProgramFiles}\HashiCorp\bin` (for Windows)
   * Adds `${env:ProgramFiles}\HashiCorp\bin` to system's PATH (for Windows)
-* Cleans up binary archive
+* Cleans up archive, checksums and signature files
 * Verifies binary installation
 
 ## Contributing

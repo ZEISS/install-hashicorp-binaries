@@ -55,16 +55,20 @@ install_hashicorp_binaries(){
         arch="arm"
     fi
     # Verify the system packages
-    local cmds=(gpg curl unzip) cmds_error="" gpg=0
+    local cmds=(shasum sha256sum curl unzip gpg) cmds_error="" gpg=0 shasum=0
     set +e
     for cmd in "${cmds[@]}"; do
         command -v ${cmd} >/dev/null 2>&1
         if [ $? -ne 0 ]; then
-            if [ "${os}" = "darwin" ] && [ "${cmd}" = "gpg" ]; then
-                gpg=1
-                continue
-            fi
-            cmds_error+="\n         Command \"${cmd}\" not found"
+            case "${cmd}" in
+                gpg) gpg=1;;
+                shasum) shasum=1;;
+                sha256sum)
+                    if [ $shasum -ne 0 ]; then
+                        cmds_error+="\n         Command \"shasum\" or \"${cmd}\" not found"
+                    fi;;
+                *) cmds_error+="\n         Command \"${cmd}\" not found";;
+            esac
         fi
     done
     set -e
@@ -72,8 +76,8 @@ install_hashicorp_binaries(){
         echo -e >&2 "FATAL:   Ensure required system packages are installed and added to system's PATH!${cmds_error}"
         exit 1
     fi
-    # Verfiy the integrity of the PGP key and import the PGP key
     if [ ${gpg} -eq 0 ]; then
+        # Verfiy the integrity of the PGP key and import the PGP key
         (cd ${TMPDIR:-/tmp} && curl -so hashicorp.asc ${pgp_keystore})
         if [ "${pgp_thumbprint}" != "$(quiet_gpg --dry-run --import --import-options import-show ${TMPDIR:-/tmp}/hashicorp.asc |
             sed -En 's/^[ \t]+([ A-Z0-9]{40,})$/\1/gp')" ]; then
@@ -114,15 +118,15 @@ install_hashicorp_binaries(){
         fi
         set -e
 
-        # Download the archive and signature files
+        # Download the archive, checksums and signature files
         echo >&2 "Fetching ${download_url}/${name}/${version}/"
         (cd ${TMPDIR:-/tmp} &&
         curl -Osw "  %{filename_effective} (%{time_total} seconds, %{size_download} bytes)\n" \
         ${download_url}/${name}/${version}/${name}_${version}_${os}_${arch}.zip)
+        (cd ${TMPDIR:-/tmp} &&
+        curl -Osw "  %{filename_effective} (%{time_total} seconds, %{size_download} bytes)\n" \
+        ${download_url}/${name}/${version}/${name}_${version}_SHA256SUMS)
         if [ ${gpg} -eq 0 ]; then
-            (cd ${TMPDIR:-/tmp} &&
-            curl -Osw "  %{filename_effective} (%{time_total} seconds, %{size_download} bytes)\n" \
-            ${download_url}/${name}/${version}/${name}_${version}_SHA256SUMS)
             (cd ${TMPDIR:-/tmp} &&
             curl -Osw "  %{filename_effective} (%{time_total} seconds, %{size_download} bytes)\n" \
             ${download_url}/${name}/${version}/${name}_${version}_SHA256SUMS.sig)
@@ -130,17 +134,24 @@ install_hashicorp_binaries(){
 
         echo >&2 "Installing ${name} (${version})"
         if [ ${gpg} -eq 0 ]; then
-            # Verify the integrity of the signature file
+            # Verify the integrity of the checksums file
             quiet_gpg --verify ${TMPDIR:-/tmp}/${name}_${version}_SHA256SUMS.sig ${TMPDIR:-/tmp}/${name}_${version}_SHA256SUMS
-            # Verify the integrity of the archive
-            (cd ${TMPDIR:-/tmp} && grep ${name}_${version}_${os}_${arch}.zip ${name}_${version}_SHA256SUMS | sha256sum -c --status)
-            # Clean up the signature files
-            rm ${TMPDIR:-/tmp}/${name}_${version}_SHA256SUMS
+            # Clean up the signature file
             rm ${TMPDIR:-/tmp}/${name}_${version}_SHA256SUMS.sig
         fi
+        # Verify the integrity of the archive
+        if [ $shasum -eq 0 ]; then
+            (cd ${TMPDIR:-/tmp} && grep ${name}_${version}_${os}_${arch}.zip ${name}_${version}_SHA256SUMS | shasum -a 256 -c --status)
+        else
+            (cd ${TMPDIR:-/tmp} && grep ${name}_${version}_${os}_${arch}.zip ${name}_${version}_SHA256SUMS | sha256sum -c --status)
+        fi
+        # Clean up the checksums file
+        rm ${TMPDIR:-/tmp}/${name}_${version}_SHA256SUMS
         # Extract the archive
         unzip ${TMPDIR:-/tmp}/${name}_${version}_${os}_${arch}.zip -d ${TMPDIR:-/tmp} >/dev/null
         chmod +x ${TMPDIR:-/tmp}/${name}
+        # Clean up the archive
+        rm ${TMPDIR:-/tmp}/${name}_${version}_${os}_${arch}.zip
         # Verify the integrity of the executable (darwin only)
         if [ "${os}" = "darwin" ] &&
             [ "${codesign_teamid}" != "$(codesign --verify -d --verbose=2 ${TMPDIR:-/tmp}/${name} |
@@ -150,8 +161,6 @@ install_hashicorp_binaries(){
         fi
         # Add the executable to system's PATH
         mv -f ${TMPDIR:-/tmp}/${name} /usr/local/bin/${name}
-        # Clean up the archive
-        rm ${TMPDIR:-/tmp}/${name}_${version}_${os}_${arch}.zip
         # Verify the installation
         verify="$(${name} version)"
         verify="$(echo "$verify" | sed -En 's/^.*?([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p')"

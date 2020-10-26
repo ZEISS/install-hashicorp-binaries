@@ -102,6 +102,7 @@ install_hashicorp_binaries(){
         set +e
         curl -fsIo /dev/null ${download_url}/${name}/${version}/${name}_${version}_${os}_${arch}.zip
         if [ $? -ne 0 ]; then
+            set -e
             echo >&2 "Installing ${name} (${version})"
             echo >&2 "ERROR:   No appropriate archive for your product, version, operating"
             echo >&2 "         system or architecture on ${download_url}"

@@ -63,6 +63,7 @@ Windows:
   * specified or latest stable version
   * detected operating system
   * detected CPU architecture
+* Verifies system requirements
 * Verifies and imports PGP key (optional)
 * Fetchs archive, checksums and signature files
 * Verifies checksum signature (optional)

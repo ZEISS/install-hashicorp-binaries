@@ -26,16 +26,16 @@ quiet_gpg(){
 #   * non-zero on error
 #################################################
 install_hashicorp_binaries(){
-    local download_url="https://releases.hashicorp.com"
+    local download_url='https://releases.hashicorp.com'
     # https://www.hashicorp.com/security
     # HashiCorp PGP key
-    local pgp_keystore="https://keybase.io/hashicorp/pgp_keys.asc"
+    local pgp_keystore='https://keybase.io/hashicorp/pgp_keys.asc'
     local pgp_thumbprint='91A6E7F85D05C65630BEF18951852D87348FFC4C'
     # HashiCorp Code Signature (darwin only)
     local codesign_teamid='D38WU7D763'
     local os='undefined' arch='undefined'
 
-    # Lookup the operating system
+    # Look up the operating system
     case "$(uname | tr '[:upper:]' '[:lower:]')" in
         linux*) os='linux';;
         freebsd*) os='freebsd';;
@@ -44,7 +44,7 @@ install_hashicorp_binaries(){
         darwin*) os='darwin';;
         sunos*) os='solaris';;
     esac
-    # Lookup the architecture
+    # Look up the architecture
     if [ "$(uname -m)" = "x86_64" ] && [ "$(getconf LONG_BIT)" = "64" ]; then
         arch="amd64"
     elif [ "$(uname -m)" = "x86_64" ] && [ "$(getconf LONG_BIT)" = "32" ]; then
@@ -54,7 +54,7 @@ install_hashicorp_binaries(){
     elif [[ "$(uname -m)" =~ "arm" ]] && [ "$(getconf LONG_BIT)" = "32" ]; then
         arch="arm"
     fi
-    # Verify the system packages
+    # Verify the system requirements
     local cmds=(shasum sha256sum curl unzip gpg) cmds_error="" gpg=0 shasum=0
     set +e
     for cmd in "${cmds[@]}"; do
@@ -73,7 +73,7 @@ install_hashicorp_binaries(){
     done
     set -e
     if [ -n "${cmds_error}" ]; then
-        echo -e >&2 "FATAL:   Ensure required system packages are installed and added to system's PATH!${cmds_error}"
+        echo -e >&2 "FATAL:   Ensure system requirements are installed and added to system's PATH!${cmds_error}"
         exit 1
     fi
     if [ ${gpg} -eq 0 ]; then
@@ -91,7 +91,7 @@ install_hashicorp_binaries(){
     for archive in "$@"; do
         local delimiter=":" verify
         local name="${archive%$delimiter*}" version="${archive#*$delimiter}"
-        # Lookup the latest version
+        # Look up the latest stable version
         if [ "$version" = "$archive" -o "$version" = "latest" ]; then
             local regex_grep="\"[\.0-9]+\":\{\"name\":\"${name}\",\"version\""
             local regex_sed="s/^\"([\.0-9]+)\".*$/\1/p"
@@ -102,7 +102,7 @@ install_hashicorp_binaries(){
                 sed -n '1p' || 
                 echo 'undefined')"
         fi
-        # Lookup the download archive
+        # Look up the archive
         set +e
         curl -fsIo /dev/null ${download_url}/${name}/${version}/${name}_${version}_${os}_${arch}.zip
         if [ $? -ne 0 ]; then

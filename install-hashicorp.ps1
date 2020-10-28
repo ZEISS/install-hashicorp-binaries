@@ -1,8 +1,8 @@
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-function Import-AsyncScriptsWebDownload {
-    if (-not ([System.Management.Automation.PSTypeName]'AsyncScripts.Web').Type){
+function Import-ScriptsWebDownload {
+    if (-not ([System.Management.Automation.PSTypeName]'Scripts.Web').Type){
 @"
 using System;
 using System.Collections.Generic;
@@ -12,7 +12,7 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Threading.Tasks;
 
-namespace AsyncScripts
+namespace Scripts
 {
     public class Web
     {
@@ -147,10 +147,23 @@ namespace AsyncScripts
     }
 }
 "@ | Set-Content -Path "${env:Temp}\Web.cs"
-        $asyncScriptsWeb = Get-Content -Path "${env:Temp}\Web.cs" -Raw
-        Add-Type -TypeDefinition "$asyncScriptsWeb" -Language CSharp
+        [string]$scriptsWeb = Get-Content -Path "${env:Temp}\Web.cs" -Raw
+        Add-Type -TypeDefinition "$scriptsWeb" -Language CSharp
         Remove-Item -Force "${env:Temp}\Web.cs"
     }
+}
+
+function Invoke-QuietGPG {
+    [string]$cacheErrorActionPreference = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    gpg --quiet @args 2> "${env:Temp}\gpg.error.log"
+    if ($LASTEXITCODE -ne 0){
+        [string]$gpgErrorLog = Get-Content -Path "${env:Temp}\gpg.error.log" -Raw
+        Remove-Item -Force "${env:Temp}\gpg.error.log"
+        Write-Error -Message "$gpgErrorLog" -ErrorAction $cacheErrorActionPreference
+    }
+    $ErrorActionPreference = $cacheErrorActionPreference
+    Remove-Item -Force "${env:Temp}\gpg.error.log"
 }
 
 #################################################
@@ -173,12 +186,15 @@ function Install-HashiCorpBinaries {
 
     [string]$downloadUrl = 'https://releases.hashicorp.com'
     # https://www.hashicorp.com/security
+    # HashiCorp PGP key
+    [string]$pgpKeystore='https://keybase.io/hashicorp/pgp_keys.asc'
+    [string]$pgpThumbprint='91A6E7F85D05C65630BEF18951852D87348FFC4C'
     # HashiCorp Code Signature
     [string]$codeSignThumbprint = '35AB9FC834D217E9E7B1778FB1B97AF7C73792F2'
     [string]$os = 'windows'
     [string]$arch = 'undefined'
 
-    # Check out the architecture
+    # Look up the architecture
     if ((Get-WmiObject Win32_OperatingSystem).OSArchitecture -match '64'){
         $arch = 'amd64'
         if ((Get-WmiObject Win32_ComputerSystem).SystemType -match 'ARM'){
@@ -189,12 +205,43 @@ function Install-HashiCorpBinaries {
     elseif ((Get-WmiObject Win32_OperatingSystem).OSArchitecture -match '32'){
         $arch = '386'
     }
+    # Verify the system requirements
+    [string[]]$cmds = 'gpg'
+    [string]$cmds_error = ''
+    [string]$gpg = 0
+    foreach ($cmd in $cmds){
+        try {
+            Get-Command $cmd | Out-Null
+        }
+        catch {
+            switch ($cmd){
+                'gpg' {$gpg = 1}
+                Default {$cmds_error += "`r`n         Command `"${cmd}`" not found"}
+            }
+        }
+    }
+    if (-not ([string]::IsNullOrEmpty($cmds_error))){
+        WriteError "FATAL:   Ensure system requirements are installed and added to system's PATH!${cmd_errors}"
+    }
+    if ($gpg -eq 0){
+        # Verfiy the integrity of the PGP key and import the PGP key
+        Invoke-WebRequest -UseBasicParsing -Method Get `
+        -Uri "${pgpKeystore}" -OutFile "${env:Temp}\hashicorp.asc" | `
+        Out-Null
+        if ("${pgpThumbprint}" -ne (Invoke-QuietGPG --dry-run --import --import-options import-show "${env:Temp}\hashicorp.asc" | `
+            Select-String -Pattern '^[ \t]+([ A-Z0-9]{40,})$' -AllMatches | `
+            % {$_.Matches.Groups[1]} | % {$_.Value})){
+            Write-Error "FATAL:   Integrity of the PGP key `"${pgpKeystore}`" is compromised"
+        }
+        Invoke-QuietGPG --import "${env:Temp}\hashicorp.asc"
+        Remove-Item -Force "${env:Temp}\hashicorp.asc"
+    }
 
     [string[]]$verifiedArchives = @()
-    [string]$asyncDonwloadFiles = ''
+    [string]$downloadFiles = ''
     foreach ($archive in $archives){
         [string]$name, [string]$version = "$archive" -split ":"
-        # Check out the latest CLI version
+        # Look up the latest stable version
         if ([string]::IsNullOrEmpty($version) -or "$version" -eq "latest" ){
             [string]$regex = "`"([\.0-9]+)`":{`"name`":`"${name}`",`"version`""
             try {
@@ -209,7 +256,7 @@ function Install-HashiCorpBinaries {
                 $version = "undefined"
             }
         }
-        # Check out the archive
+        # Look up the archive
         try {
             Invoke-WebRequest -UseBasicParsing -Method Head `
             -Uri "${downloadUrl}/${name}/${version}/${name}_${version}_${os}_${arch}.zip" | `
@@ -226,28 +273,37 @@ function Install-HashiCorpBinaries {
             continue
         }
         $verifiedArchives += "${name}:${version}"
-        $asyncDonwloadFiles += "'${downloadUrl}/${name}/${version}/${name}_${version}_${os}_${arch}.zip', '${env:Temp}\${name}_${version}_${os}_${arch}.zip', "
-        $asyncDonwloadFiles += "'${downloadUrl}/${name}/${version}/${name}_${version}_SHA256SUMS', '${env:Temp}\${name}_${version}_SHA256SUMS', "
+        $downloadFiles += "'${downloadUrl}/${name}/${version}/${name}_${version}_${os}_${arch}.zip', '${env:Temp}\${name}_${version}_${os}_${arch}.zip', "
+        $downloadFiles += "'${downloadUrl}/${name}/${version}/${name}_${version}_SHA256SUMS', '${env:Temp}\${name}_${version}_SHA256SUMS', "
+        if ($gpg -eq 0){
+            $downloadFiles += "'${downloadUrl}/${name}/${version}/${name}_${version}_SHA256SUMS.sig', '${env:Temp}\${name}_${version}_SHA256SUMS.sig', "
+        }
     }
 
-    # Download the archives and checksums files
+    # Download the archive, checksums and signature files
     Write-Host "Fetching ${downloadUrl}/"
-    $asyncDonwloadFiles = $asyncDonwloadFiles.SubString(0, [math]::Max(0, $asyncDonwloadFiles.length - 2))
-    if (-not ([string]::IsNullOrEmpty($asyncDonwloadFiles))){
-        Import-AsyncScriptsWebDownload
-        [string]$asyncDownload = "[AsyncScripts.Web]::DownloadFiles($asyncDonwloadFiles)"
-        Invoke-Expression $asyncDownload | Out-Null
+    $downloadFiles = $downloadFiles.SubString(0, [math]::Max(0, $downloadFiles.length - 2))
+    if (-not ([string]::IsNullOrEmpty($downloadFiles))){
+        Import-ScriptsWebDownload
+        [string]$download = "[Scripts.Web]::DownloadFiles($downloadFiles)"
+        Invoke-Expression $download | Out-Null
     }
 
     foreach ($archive in $verifiedArchives){
         [string]$name, [string]$version = "$archive" -split ":"
         Write-Host "Installing ${name} (${version})"
+        if ($gpg -eq 0){
+            # Verify the integrity of the checksums file
+            Invoke-QuietGPG --verify "${env:Temp}\${name}_${version}_SHA256SUMS.sig" "${env:Temp}\${name}_${version}_SHA256SUMS"
+            # Clean up the signature file
+            Remove-Item -Force "${env:Temp}\${name}_${version}_SHA256SUMS.sig"
+        }
         # Verify the integrity of the archive
-        [string]$checksum = $(CertUtil -hashfile "${env:Temp}\${name}_${version}_${os}_${arch}.zip" SHA256)[1] -replace ' ',''
+        [string]$checksum = (Get-FileHash "${env:Temp}\${name}_${version}_${os}_${arch}.zip" -Algorithm SHA256).Hash
         [string]$regex = "^([A-Fa-f0-9]{64}).*${name}_${version}_${os}_${arch}\.zip$"
         if ($checksum -ne (Get-Content -Path "${env:Temp}\${name}_${version}_SHA256SUMS" | `
             Select-String -Pattern $regex -AllMatches | % {$_.Matches.Groups[1]} | % {$_.Value})){
-            throw "FATAL:   Integrity of the archive `"${name}_${version}_${os}_${arch}.zip`" is compromised"
+            Write-Error "FATAL:   Integrity of the archive `"${name}_${version}_${os}_${arch}.zip`" is compromised"
         }
         # Clean up the checksums file
         Remove-Item -Force "${env:Temp}\${name}_${version}_SHA256SUMS"
@@ -257,7 +313,7 @@ function Install-HashiCorpBinaries {
         Remove-Item -Force "${env:Temp}\${name}_${version}_${os}_${arch}.zip"
         # Verify the integrity of the executable
         if ($codeSignThumbprint -ne ((Get-AuthenticodeSignature -FilePath "${env:Temp}\${name}.exe").SignerCertificate).thumbprint){
-            throw "FATAL:   Integrity of the executable `"${name}.exe`" is compromised"
+            Write-Error "FATAL:   Integrity of the executable `"${name}.exe`" is compromised"
         }
         # Add the executable to system's PATH
         if (-not (Test-Path "${env:ProgramFiles}\HashiCorp\bin")){
@@ -277,7 +333,7 @@ function Install-HashiCorpBinaries {
         Remove-PSSession -Session $verifyPS
         $verify = $verify | Select-String -Pattern '^.*?([0-9]+\.[0-9]+\.[0-9]+).*$' -AllMatches | `
             % {$_.Matches.Groups[1]} | % {$_.Value}
-        if ( "${verify}" -ne "${version}" ){
+        if ("${verify}" -ne "${version}"){
             Write-Host "WARNING: Another executable file is prioritized when the command `"${name}`" is executed"
             Write-Host "         Check your system's PATH!"
         }

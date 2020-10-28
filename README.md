@@ -31,11 +31,12 @@ Linux / MacOS:
 * `curl` for fetching metadata and archive
 * `unzip` for extracting binary from archive
 * `shasum` / `sha256sum` for verifying archive checksum
-* `gpg` for verifying checksum signature (optional)
+* [`gpg`](https://gnupg.org/) for verifying checksum signature (optional)
 
 Windows:
 
 * `powershell` / `pwsh` for executing script
+* [`gpg`](https://gnupg.org/) for verifying checksum signature (optional)
 
 ### Usage
 
@@ -64,7 +65,7 @@ Windows:
   * detected CPU architecture
 * Verifies and imports PGP key (optional)
 * Fetchs archive, checksums and signature files
-* Verifies checksums signature (optional)
+* Verifies checksum signature (optional)
 * Verifies archive checksum
 * Extract binary from archive
 * Verifies binary code signature (for MacOS and Windows)

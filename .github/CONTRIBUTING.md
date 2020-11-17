@@ -4,7 +4,7 @@ Thanks! There are a few guidelines that we need contributors to follow so that w
 
 ## Report
 
-You can report bugs or make enhancement requests at this [GitHub project issue page](http://github.com/rembik/install-hashicorp-binaries/issues/new/choose) by filling out the issue template that will be presented.
+You can report bugs or make enhancement requests at this [GitHub project issue page](http://github.com/zeiss-digital-innovation/install-hashicorp-binaries/issues/new/choose) by filling out the issue template that will be presented.
 
 ## Develop
 

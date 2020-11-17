@@ -1,6 +1,6 @@
 # Install HashiCorp binaries
 
-[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/rembik/install-hashicorp-binaries?sort=semver&logo=github)][github_releases]
+[![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/zeiss-digital-innovation/install-hashicorp-binaries?sort=semver&logo=github)][github_releases]
 
 Installation script for HashiCorp binaries hosted on https://releases.hashicorp.com (e.g. packer, terraform, vault).
 
@@ -11,7 +11,7 @@ Download the installtion script
 Linux / MacOS:
 
 ```shell
-curl -LO https://raw.github.com/rembik/install-hashicorp-binaries/master/install-hashicorp.sh
+curl -LO https://raw.github.com/zeiss-digital-innovation/install-hashicorp-binaries/master/install-hashicorp.sh
 chmod +x install-hashicorp.sh
 ```
 
@@ -19,7 +19,7 @@ Windows:
 
 ```shell
 Invoke-WebRequest -UseBasicParsing `
--Uri https://raw.github.com/rembik/install-hashicorp-binaries/master/install-hashicorp.ps1 `
+-Uri https://raw.github.com/zeiss-digital-innovation/install-hashicorp-binaries/master/install-hashicorp.ps1 `
 -OutFile install-hashicorp.ps1
 ```
 
@@ -46,14 +46,14 @@ Linux / MacOS:
 
 ```shell
 # ./install-hashicorp.sh <name>[:<version>] [...]
-./install-hashicorp.sh packer terraform:0.13.5 vault:latest
+./install-hashicorp.sh packer terraform:0.14.0-rc1 vault:latest
 ```
 
 Windows:
 
 ```shell
 # .\install-hashicorp.ps1 <name>[:<version>] [...]
-.\install-hashicorp.ps1 packer terraform:0.13.5 vault:latest
+.\install-hashicorp.ps1 packer terraform:0.14.0-rc1 vault:latest
 ```
 
 #### Script Details
@@ -89,7 +89,7 @@ If you find issues, please register them at this [GitHub project issue page][git
 
 This project is licensed under the MIT License - see the [LICENSE][github_licence] file for details.
 
-[github_releases]: https://github.com/rembik/install-hashicorp-binaries/releases
-[github_issue]: http://github.com/rembik/install-hashicorp-binaries/issues/new/choose
-[github_guide]: http://github.com/rembik/install-hashicorp-binaries/tree/master/.github/CONTRIBUTING.md
-[github_licence]: http://github.com/rembik/install-hashicorp-binaries/tree/master/LICENSE
+[github_releases]: https://github.com/zeiss-digital-innovation/install-hashicorp-binaries/releases
+[github_issue]: http://github.com/zeiss-digital-innovation/install-hashicorp-binaries/issues/new/choose
+[github_guide]: http://github.com/zeiss-digital-innovation/install-hashicorp-binaries/tree/master/.github/CONTRIBUTING.md
+[github_licence]: http://github.com/zeiss-digital-innovation/install-hashicorp-binaries/tree/master/LICENSE

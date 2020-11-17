@@ -20,7 +20,7 @@ quiet_gpg(){
 # ARGUMENTS:
 #   <name>[:<version>] [...]
 # EXAMPLE:
-#   install_hashicorp_binaries packer terraform:0.13.3
+#   install_hashicorp_binaries packer terraform:0.14.0-rc1
 # RETURN:
 #   * 0 if installation succeeded or skipped
 #   * non-zero on error

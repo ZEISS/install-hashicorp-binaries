@@ -153,6 +153,25 @@ namespace Scripts
     }
 }
 
+function Update-SessionEnvironment {
+    $userName = $env:USERNAME
+    $architecture = $env:PROCESSOR_ARCHITECTURE
+    $psModulePath = $env:PSModulePath
+
+    #Path gets special treatment b/c it munges the two together
+    $paths = 'Machine', 'User' |
+        % {[System.Environment]::GetEnvironmentVariable("PATH","$_") -split ';'} |
+        Select -Unique
+    $env:PATH = $paths -join ';'
+
+    # PSModulePath is almost always updated by process, so we want to preserve it.
+    $env:PSModulePath = $psModulePath
+
+    # reset user and architecture
+    if ($userName) { $env:USERNAME = $userName; }
+    if ($architecture) { $env:PROCESSOR_ARCHITECTURE = $architecture; }
+}
+
 function Invoke-QuietGPG {
     [string]$cacheErrorActionPreference = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
@@ -320,17 +339,13 @@ function Install-HashiCorpBinaries {
             New-Item -ItemType Directory -Force -Path "${env:ProgramFiles}\HashiCorp\bin" | Out-Null
         }
         Move-Item -Force -Path "${env:Temp}\${name}.exe" "${env:ProgramFiles}\HashiCorp\bin\${name}.exe"
-        $pathPS = New-PSSession -ComputerName localhost
-        [string]$path = Invoke-Command -Session $pathPS -ScriptBlock { Write-Output "${env:PATH}" }
-        Remove-PSSession -Session $pathPS
-        if (-not ("$path" -match [Regex]::Escape("${env:ProgramFiles}\HashiCorp\bin"))){
+        Update-SessionEnvironment
+        if (-not ("$env:PATH" -match [Regex]::Escape("${env:ProgramFiles}\HashiCorp\bin"))){
             SETX /M PATH ('{0};{1};' -f "${env:PATH}", "${env:ProgramFiles}\HashiCorp\bin") | Out-Null
         }
         # Verify the CLI installation
-        [string]$verify = "${name} version"
-        $verifyPS = New-PSSession -ComputerName localhost
-        $verify = Invoke-Command -Session $verifyPS -ScriptBlock { Invoke-Expression $args[0] } -ArgumentList "$verify"
-        Remove-PSSession -Session $verifyPS
+        Update-SessionEnvironment
+        $verify = Invoke-Expression "${name} version"
         $verify = $verify | Select-String -Pattern '^.*?([0-9]+\.[0-9]+\.[0-9]+).*$' -AllMatches | `
             % {$_.Matches.Groups[1]} | % {$_.Value}
         if ("${verify}" -ne "${version}"){

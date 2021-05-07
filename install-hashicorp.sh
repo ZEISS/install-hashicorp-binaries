@@ -163,7 +163,7 @@ install_hashicorp_binaries(){
         mv -f ${TMPDIR:-/tmp}/${name} /usr/local/bin/${name}
         # Verify the installation
         verify="$(${name} version)"
-        verify="$(echo "$verify" | sed -En 's/^.*?([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p')"
+        verify="$(echo "$verify" | sed -En 's/^.*?([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p' | sed -n '1p')"
         if [ "${verify}" != "${version}" ]; then
             echo >&2 "WARNING: Another executable file is prioritized when the command \"${name}\" is executed"
             echo >&2 "         Check your system's PATH!"

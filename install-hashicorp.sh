@@ -30,7 +30,7 @@ install_hashicorp_binaries(){
     # https://www.hashicorp.com/security
     # HashiCorp PGP key
     local pgp_keystore='https://keybase.io/hashicorp/pgp_keys.asc'
-    local pgp_thumbprint='91A6E7F85D05C65630BEF18951852D87348FFC4C'
+    local pgp_thumbprint='C874011F0AB405110D02105534365D9472D7468F'
     # HashiCorp Code Signature (darwin only)
     local codesign_teamid='D38WU7D763'
     local os='undefined' arch='undefined'

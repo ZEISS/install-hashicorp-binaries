@@ -335,13 +335,13 @@ function Install-HashiCorpBinaries {
             Write-Error "FATAL:   Integrity of the executable `"${name}.exe`" is compromised"
         }
         # Add the executable to system's PATH
-        if (-not (Test-Path "${env:ProgramFiles}\HashiCorp\bin")){
-            New-Item -ItemType Directory -Force -Path "${env:ProgramFiles}\HashiCorp\bin" | Out-Null
+        if (-not (Test-Path "${env:ProgramW6432}\HashiCorp\bin")){
+            New-Item -ItemType Directory -Force -Path "${env:ProgramW6432}\HashiCorp\bin" | Out-Null
         }
-        Move-Item -Force -Path "${env:Temp}\${name}.exe" "${env:ProgramFiles}\HashiCorp\bin\${name}.exe"
+        Move-Item -Force -Path "${env:Temp}\${name}.exe" "${env:ProgramW6432}\HashiCorp\bin\${name}.exe"
         Update-SessionEnvironment
-        if (-not ("$env:PATH" -match [Regex]::Escape("${env:ProgramFiles}\HashiCorp\bin"))){
-            SETX /M PATH ('{0};{1};' -f "${env:PATH}", "${env:ProgramFiles}\HashiCorp\bin") | Out-Null
+        if (-not ("$env:PATH" -match [Regex]::Escape("${env:ProgramW6432}\HashiCorp\bin"))){
+            SETX /M PATH ('{0};{1};' -f "${env:PATH}", "${env:ProgramW6432}\HashiCorp\bin") | Out-Null
         }
         # Verify the CLI installation
         Update-SessionEnvironment

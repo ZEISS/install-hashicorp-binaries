@@ -72,8 +72,8 @@ Windows:
 * Verifies binary code signature (for MacOS and Windows)
 * Adds binary to system's PATH
   * Moves binary to `/usr/local/bin` (for Linux and MacOS)
-  * Moves binary to `${env:ProgramFiles}\HashiCorp\bin` (for Windows)
-  * Adds `${env:ProgramFiles}\HashiCorp\bin` to system's PATH (for Windows)
+  * Moves binary to `${env:ProgramW6432}\HashiCorp\bin` (for Windows)
+  * Adds `${env:ProgramW6432}\HashiCorp\bin` to system's PATH (for Windows)
 * Cleans up archive, checksums and signature files
 * Verifies binary installation
 

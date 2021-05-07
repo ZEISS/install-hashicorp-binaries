@@ -207,7 +207,7 @@ function Install-HashiCorpBinaries {
     # https://www.hashicorp.com/security
     # HashiCorp PGP key
     [string]$pgpKeystore = 'https://keybase.io/hashicorp/pgp_keys.asc'
-    [string]$pgpThumbprint = '91A6E7F85D05C65630BEF18951852D87348FFC4C'
+    [string]$pgpThumbprint = 'C874011F0AB405110D02105534365D9472D7468F'
     # HashiCorp Code Signature
     [string]$codeSignThumbprint = '35AB9FC834D217E9E7B1778FB1B97AF7C73792F2'
     [string]$os = 'windows'

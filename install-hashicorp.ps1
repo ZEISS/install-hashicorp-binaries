@@ -346,7 +346,7 @@ function Install-HashiCorpBinaries {
         # Verify the CLI installation
         Update-SessionEnvironment
         $verify = Invoke-Expression "${name} version"
-        $verify = $verify | Select-String -Pattern '^.*?([0-9]+\.[0-9]+\.[0-9]+).*$' -AllMatches | `
+        $verify = $verify | Select-Object -First 1 | Select-String -Pattern '^.*?([0-9]+\.[0-9]+\.[0-9]+).*$' -AllMatches | `
             % {$_.Matches.Groups[1]} | % {$_.Value}
         if ("${verify}" -ne "${version}"){
             Write-Host "WARNING: Another executable file is prioritized when the command `"${name}`" is executed"

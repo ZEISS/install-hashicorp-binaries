@@ -53,6 +53,8 @@ install_hashicorp_binaries(){
         arch="arm64"
     elif [[ "$(uname -m)" =~ "arm" ]] && [ "$(getconf LONG_BIT)" = "32" ]; then
         arch="arm"
+    elif [[ "$(uname -m)" =~ "arm" ]] && [ "$(getconf LONG_BIT)" = "64" ]; then
+        arch="arm64"
     fi
     # Verify the system requirements
     local cmds=(shasum sha256sum curl unzip gpg) cmds_error="" gpg=0 shasum=0
@@ -154,7 +156,7 @@ install_hashicorp_binaries(){
         rm ${TMPDIR:-/tmp}/${name}_${version}_${os}_${arch}.zip
         # Verify the integrity of the executable (darwin only)
         if [ "${os}" = "darwin" ] &&
-            [ "${codesign_teamid}" != "$(codesign --verify -d --verbose=2 ${TMPDIR:-/tmp}/${name} |
+            [ "${codesign_teamid}" != "$(codesign --verify -d --verbose=2 ${TMPDIR:-/tmp}/${name} 2>&1 |
             sed -En 's/^TeamIdentifier=([A-Z0-9]+)$/\1/gp')" ]; then
             echo >&2 "FATAL:   Integrity of the executable \"${name}\" is compromised"
             exit 1
@@ -163,7 +165,7 @@ install_hashicorp_binaries(){
         mv -f ${TMPDIR:-/tmp}/${name} /usr/local/bin/${name}
         # Verify the installation
         verify="$(${name} version)"
-        verify="$(echo "$verify" | sed -En 's/^.*?([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p' | sed -n '1p')"
+        verify="$(echo "$verify" | sed -En 's/^[^0-9]*([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p' | sed -n '1p')"
         if [ "${verify}" != "${version}" ]; then
             echo >&2 "WARNING: Another executable file is prioritized when the command \"${name}\" is executed"
             echo >&2 "         Check your system's PATH!"

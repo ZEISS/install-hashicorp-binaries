@@ -49,12 +49,10 @@ install_hashicorp_binaries(){
         arch="amd64"
     elif [ "$(uname -m)" = "x86_64" ] && [ "$(getconf LONG_BIT)" = "32" ]; then
         arch="386"
-    elif [[ "$(uname -m)" =~ "aarch" ]] && [ "$(getconf LONG_BIT)" = "64" ]; then
+    elif [[ "$(uname -m)" =~ (aarch|arm) ]] && [ "$(getconf LONG_BIT)" = "64" ]; then
         arch="arm64"
     elif [[ "$(uname -m)" =~ "arm" ]] && [ "$(getconf LONG_BIT)" = "32" ]; then
         arch="arm"
-    elif [[ "$(uname -m)" =~ "arm" ]] && [ "$(getconf LONG_BIT)" = "64" ]; then
-        arch="arm64"
     fi
     # Verify the system requirements
     local cmds=(shasum sha256sum curl unzip gpg) cmds_error="" gpg=0 shasum=0
@@ -165,7 +163,7 @@ install_hashicorp_binaries(){
         mv -f ${TMPDIR:-/tmp}/${name} /usr/local/bin/${name}
         # Verify the installation
         verify="$(${name} version)"
-        verify="$(echo "$verify" | sed -En 's/^[^0-9]*([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p' | sed -n '1p')"
+        verify="$(echo "$verify" | sed -En 's/^.*?([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p' | sed -n '1p')"
         if [ "${verify}" != "${version}" ]; then
             echo >&2 "WARNING: Another executable file is prioritized when the command \"${name}\" is executed"
             echo >&2 "         Check your system's PATH!"

@@ -26,7 +26,7 @@ Invoke-WebRequest -UseBasicParsing `
 ### Prerequisities
 
 MacOS:
-* GNU utilities are required to run this script, you can follow the how-to at: https://gist.github.com/skyzyx/3438280b18e4f7c490db8a2a2ca0b9da
+* GNU utilities (see [Homebrew GNU bin](https://gist.github.com/skyzyx/3438280b18e4f7c490db8a2a2ca0b9da)) for `sed` and `grep`
 
 Linux / MacOS:
 

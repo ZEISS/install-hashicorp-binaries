@@ -45,14 +45,18 @@ install_hashicorp_binaries(){
         sunos*) os='solaris';;
     esac
     # Look up the architecture
-    if [ "$(uname -m)" = "x86_64" ] && [ "$(getconf LONG_BIT)" = "64" ]; then
-        arch="amd64"
-    elif [ "$(uname -m)" = "x86_64" ] && [ "$(getconf LONG_BIT)" = "32" ]; then
-        arch="386"
-    elif [[ "$(uname -m)" =~ "aarch" ]] && [ "$(getconf LONG_BIT)" = "64" ]; then
-        arch="arm64"
-    elif [[ "$(uname -m)" =~ "arm" ]] && [ "$(getconf LONG_BIT)" = "32" ]; then
-        arch="arm"
+    if [ "$(getconf LONG_BIT)" = "64" ]; then
+        if [ "$(uname -m)" = "x86_64" ]; then
+            arch="amd64"
+        elif [[ "$(uname -m)" =~ ^.*(arm|aarch).*$ ]]; then
+            arch="arm64"
+        fi
+    elif  [ "$(getconf LONG_BIT)" = "32" ]; then
+        if [ "$(uname -m)" = "x86_64" ]; then
+            arch="386"
+        elif [[ "$(uname -m)" =~ ^.*arm.*$ ]]; then
+            arch="arm"
+        fi
     fi
     # Verify the system requirements
     local cmds=(shasum sha256sum curl unzip gpg) cmds_error="" gpg=0 shasum=0
@@ -154,7 +158,7 @@ install_hashicorp_binaries(){
         rm ${TMPDIR:-/tmp}/${name}_${version}_${os}_${arch}.zip
         # Verify the integrity of the executable (darwin only)
         if [ "${os}" = "darwin" ] &&
-            [ "${codesign_teamid}" != "$(codesign --verify -d --verbose=2 ${TMPDIR:-/tmp}/${name} |
+            [ "${codesign_teamid}" != "$(codesign --verify -d --verbose=2 ${TMPDIR:-/tmp}/${name} 2>&1 |
             sed -En 's/^TeamIdentifier=([A-Z0-9]+)$/\1/gp')" ]; then
             echo >&2 "FATAL:   Integrity of the executable \"${name}\" is compromised"
             exit 1

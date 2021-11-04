@@ -25,7 +25,7 @@ Invoke-WebRequest -UseBasicParsing `
 
 ### Prerequisities
 
-MacOs:
+MacOS:
 * GNU utilities are required to run this script, you can follow the how-to at: https://gist.github.com/skyzyx/3438280b18e4f7c490db8a2a2ca0b9da
 
 Linux / MacOS:

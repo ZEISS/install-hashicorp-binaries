@@ -29,7 +29,7 @@ about: Create a report to help us improve
 <!--- Describe what you expected to happen when running the steps above -->
 
 ##### ACTUAL RESULTS
-<!--- Describe what actually happened. If possible run with extra verbosity (-vvvv) -->
+<!--- Describe what actually happened. If possible run with extra verbosity -->
 
 <!--- Paste verbatim command output between quotes -->
 ```paste below

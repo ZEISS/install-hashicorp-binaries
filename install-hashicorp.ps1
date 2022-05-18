@@ -262,10 +262,11 @@ function Install-HashiCorpBinaries {
         [string]$name, [string]$version = "$archive" -split ":"
         # Look up the latest stable version
         if ([string]::IsNullOrEmpty($version) -or "$version" -eq "latest" ){
-            [string]$regex = "`"([\.0-9]+)`":{`"name`":`"${name}`",`"version`""
+            [string]$regex = "^([\.0-9]+)$"
             try {
-                $version = (Invoke-WebRequest -UseBasicParsing -Method Get `
-                    -Uri "${downloadUrl}/${name}/index.json").Content | `
+                $version = (ConvertFrom-Json (Invoke-WebRequest -UseBasicParsing -Method Get `
+                    -Uri "${downloadUrl}/${name}/index.json")).versions | `
+                    % {$_.PSObject.Properties} | % {"$($_.Name)"} | `
                     Select-String -Pattern $regex -AllMatches | `
                     % {$_.Matches} | % {$_.Groups[1]} | % {$_.Value} | `
                     % {[System.Version]$_} | Sort-Object Major,Minor,Build -Descending | `
@@ -346,8 +347,8 @@ function Install-HashiCorpBinaries {
         # Verify the CLI installation
         Update-SessionEnvironment
         $verify = Invoke-Expression "${name} version"
-        $verify = $verify | Select-Object -First 1 | Select-String -Pattern '^.*?([0-9]+\.[0-9]+\.[0-9]+).*$' -AllMatches | `
-            % {$_.Matches.Groups[1]} | % {$_.Value}
+        $verify = $verify | Select-String -Pattern "^.*([0-9]+\.[0-9]+\.[0-9]+[0-9a-zA-Z\.+-]*).*$" -AllMatches | `
+            % {$_.Matches.Groups[1]} | % {$_.Value} | Select-Object -First 1
         if ("${verify}" -ne "${version}"){
             Write-Host "WARNING: Another executable file is prioritized when the command `"${name}`" is executed"
             Write-Host "         Check your system's PATH!"

@@ -97,13 +97,11 @@ install_hashicorp_binaries(){
         local name="${archive%$delimiter*}" version="${archive#*$delimiter}"
         # Look up the latest stable version
         if [ "$version" = "$archive" -o "$version" = "latest" ]; then
-            local regex_grep="\"[\.0-9]+\":\{\"name\":\"${name}\",\"version\""
-            local regex_sed="s/^\"([\.0-9]+)\".*$/\1/p"
-            version="$(curl -s ${download_url}/${name}/index.json | 
-                grep -Eo "$regex_grep" | 
-                sed -En "$regex_sed" | 
-                sort -t '.' -k 1,1nr -k 2,2nr -k 3,3nr | 
-                sed -n '1p' || 
+            local regex_grep="\"version\":\"[\.0-9]+\""
+            local regex_sed="s/^.*\"([\.0-9]+)\".*$/\1/p"
+            version="$(curl -s ${download_url}/${name}/index.json |
+                grep -Eo "$regex_grep" | sed -En "$regex_sed" |
+                sort -u -t '.' -k 1,1nr -k 2,2nr -k 3,3nr | sed -n '1p' || 
                 echo 'undefined')"
         fi
         # Look up the archive
@@ -167,7 +165,7 @@ install_hashicorp_binaries(){
         mv -f ${TMPDIR:-/tmp}/${name} /usr/local/bin/${name}
         # Verify the installation
         verify="$(${name} version)"
-        verify="$(echo "$verify" | sed -En 's/^.*?([0-9]+\.[0-9]+\.[0-9]+).*$/\1/p' | sed -n '1p')"
+        verify="$(echo "$verify" | sed -En 's/^.*([0-9]+\.[0-9]+\.[0-9]+[0-9a-zA-Z\.+-]*).*$/\1/p' | sed -n '1p')"
         if [ "${verify}" != "${version}" ]; then
             echo >&2 "WARNING: Another executable file is prioritized when the command \"${name}\" is executed"
             echo >&2 "         Check your system's PATH!"

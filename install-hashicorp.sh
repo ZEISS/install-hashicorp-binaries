@@ -150,7 +150,7 @@ install_hashicorp_binaries(){
         # Clean up the checksums file
         rm ${TMPDIR:-/tmp}/${name}_${version}_SHA256SUMS
         # Extract the archive
-        unzip ${TMPDIR:-/tmp}/${name}_${version}_${os}_${arch}.zip -d ${TMPDIR:-/tmp} >/dev/null
+        unzip -o ${TMPDIR:-/tmp}/${name}_${version}_${os}_${arch}.zip -d ${TMPDIR:-/tmp} >/dev/null
         chmod +x ${TMPDIR:-/tmp}/${name}
         # Clean up the archive
         rm ${TMPDIR:-/tmp}/${name}_${version}_${os}_${arch}.zip

@@ -53,6 +53,7 @@ install_hashicorp_binaries(){
     # HashiCorp PGP key
     local pgp_keystore='https://keybase.io/hashicorp/pgp_keys.asc'
     local pgp_thumbprint='C874011F0AB405110D02105534365D9472D7468F'
+    local pgp_key_import=1
     # HashiCorp Code Signature (darwin only)
     local codesign_teamid='D38WU7D763'
     local os='undefined' arch='undefined'
@@ -106,17 +107,6 @@ install_hashicorp_binaries(){
         echo -e >&2 "ERROR:   Ensure system requirements are installed and added to system's PATH!${cmds_error}"
         exit 1
     fi
-    if [ ${gpg} -eq 0 ]; then
-        # Verfiy the integrity of the PGP key and import the PGP key
-        (cd "${tmp_dir}" && curl -so hashicorp.asc ${pgp_keystore})
-        if [ "${pgp_thumbprint}" != "$(quiet_gpg --dry-run --import --import-options import-show "${tmp_dir}/hashicorp.asc" |
-            sed -En 's/^[ \t]+([ A-Z0-9]{40,})$/\1/gp')" ]; then
-            echo >&2 "ERROR:   Integrity of the PGP key \"${pgp_keystore}\" is compromised"
-            exit 1
-        fi
-        quiet_gpg --import "${tmp_dir}/hashicorp.asc"
-        rm "${tmp_dir}/hashicorp.asc"
-    fi
 
     for archive in "$@"; do
         local delimiter=":" verify
@@ -152,6 +142,19 @@ install_hashicorp_binaries(){
             exit 1
         fi
         set -e
+
+        if [ ${gpg} -eq 0 ] && [ ${pgp_key_import} -ne 0 ]; then
+            # Verfiy the integrity of the PGP key and import the PGP key
+            (cd "${tmp_dir}" && curl -so hashicorp.asc ${pgp_keystore})
+            if [ "${pgp_thumbprint}" != "$(quiet_gpg --dry-run --import --import-options import-show "${tmp_dir}/hashicorp.asc" |
+                sed -En 's/^[ \t]+([ A-Z0-9]{40,})$/\1/gp')" ]; then
+                echo >&2 "ERROR:   Integrity of the PGP key \"${pgp_keystore}\" is compromised"
+                exit 1
+            fi
+            quiet_gpg --import "${tmp_dir}/hashicorp.asc"
+            pgp_key_import=0
+            rm "${tmp_dir}/hashicorp.asc"
+        fi
 
         # Download the archive, checksums and signature files
         echo >&2 "Fetching ${download_url}/${name}/${version}/"
@@ -229,7 +232,7 @@ main() {
                 ;;
             -d|--directory)
                 if [ -z "${2:-}" ]; then
-                    echo >&2 "ERROR: --directory requires a path argument"
+                    echo >&2 "ERROR:   Option --directory requires a path argument"
                     usage
                     exit 1
                 fi
@@ -241,7 +244,7 @@ main() {
                 exit 0
                 ;;
             -*)
-                echo >&2 "ERROR: Unknown option $1"
+                echo >&2 "ERROR:   Unknown option $1"
                 usage
                 exit 1
                 ;;
@@ -253,7 +256,7 @@ main() {
     done
     # Check if any binaries were specified
     if [ ${#binaries[@]} -eq 0 ]; then
-        echo >&2 "ERROR: No binaries specified"
+        echo >&2 "ERROR:   No binaries specified"
         usage
         exit 1
     fi

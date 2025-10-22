@@ -53,7 +53,7 @@ install_hashicorp_binaries(){
     # HashiCorp PGP key
     local pgp_keystore='https://keybase.io/hashicorp/pgp_keys.asc'
     local pgp_thumbprint='C874011F0AB405110D02105534365D9472D7468F'
-    local pgp_key_import=1
+    local pgp_key_imported=1
     # HashiCorp Code Signature (darwin only)
     local codesign_teamid='D38WU7D763'
     local os='undefined' arch='undefined'
@@ -143,7 +143,7 @@ install_hashicorp_binaries(){
         fi
         set -e
 
-        if [ ${gpg} -eq 0 ] && [ ${pgp_key_import} -ne 0 ]; then
+        if [ ${gpg} -eq 0 ] && [ ${pgp_key_imported} -ne 0 ]; then
             # Verfiy the integrity of the PGP key and import the PGP key
             (cd "${tmp_dir}" && curl -so hashicorp.asc ${pgp_keystore})
             if [ "${pgp_thumbprint}" != "$(quiet_gpg --dry-run --import --import-options import-show "${tmp_dir}/hashicorp.asc" |
@@ -152,7 +152,7 @@ install_hashicorp_binaries(){
                 exit 1
             fi
             quiet_gpg --import "${tmp_dir}/hashicorp.asc"
-            pgp_key_import=0
+            pgp_key_imported=0
             rm "${tmp_dir}/hashicorp.asc"
         fi
 

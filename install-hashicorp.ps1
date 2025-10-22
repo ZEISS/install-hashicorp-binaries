@@ -286,7 +286,7 @@ function Install-HashiCorpBinaries {
             }
         }
         # Check if the binary already exists with the correct version
-        [string]$currentVersion = $(try { Invoke-Expression "${installDir}\${name} version" 2>$null } catch { "" })
+        [string]$currentVersion = $(try { & "${installDir}\${name}" version 2>$null } catch { "" })
         $currentVersion = $currentVersion | Select-String -Pattern "([0-9]+\.[0-9]+\.[0-9]+[0-9a-zA-Z\.+-]*)" -AllMatches | `
             % {$_.Matches.Groups[1]} | % {$_.Value} | Select-Object -First 1
         if (-not [string]::IsNullOrEmpty($currentVersion) -and $currentVersion -eq $version){
@@ -375,7 +375,7 @@ function Install-HashiCorpBinaries {
         # Add the executable to the specified directory
         Move-Item -Force -Path "${env:Temp}\${name}.exe" "${installDir}\${name}.exe"
         # Verify the CLI installation
-        $verify = $(try { Invoke-Expression "${installDir}\${name} version" 2>$null } catch { "" })
+        $verify = $(try { & "${installDir}\${name}" version 2>$null } catch { "" })
         $verify = $verify | Select-String -Pattern "([0-9]+\.[0-9]+\.[0-9]+[0-9a-zA-Z\.+-]*)" -AllMatches | `
             % {$_.Matches.Groups[1]} | % {$_.Value} | Select-Object -First 1
         if ("${verify}" -ne "${version}"){
@@ -383,7 +383,7 @@ function Install-HashiCorpBinaries {
         }
         # Check if the command is available in PATH
         Update-SessionEnvironment
-        $verify = $(try { Invoke-Expression "${name} version" 2>$null } catch { "" })
+        $verify = $(try { & "${name} version" 2>$null } catch { "" })
         $verify = $verify | Select-String -Pattern "([0-9]+\.[0-9]+\.[0-9]+[0-9a-zA-Z\.+-]*)" -AllMatches | `
             % {$_.Matches.Groups[1]} | % {$_.Value} | Select-Object -First 1
         if ("${verify}" -ne "${version}"){
@@ -425,8 +425,7 @@ function Main {
         # Custom directory scope
         $installDir = [System.IO.Path]::GetFullPath($Directory)
     }
-    elseif ($User -or -not (Test-Path $installDir -PathType Container) -or `
-        -not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){
+    elseif ($User -or -not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){
         # User scope
         $installDir = "${env:LOCALAPPDATA}\Programs\HashiCorp\bin"
         Update-SessionEnvironment

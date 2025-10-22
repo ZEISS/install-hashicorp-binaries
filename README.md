@@ -48,15 +48,71 @@ Install the required HashiCorp binaries
 Linux / MacOS:
 
 ```shell
-# ./install-hashicorp.sh <name>[:<version>] [...]
+# ./install-hashicorp.sh [options] <name>[:<version>] [...]
 ./install-hashicorp.sh packer terraform:0.14.0-rc1 vault:latest
 ```
 
 Windows:
 
 ```shell
-# .\install-hashicorp.ps1 <name>[:<version>] [...]
+# .\install-hashicorp.ps1 [options] <name>[:<version>] [...]
 .\install-hashicorp.ps1 packer terraform:0.14.0-rc1 vault:latest
+```
+
+#### Installation Scopes
+
+The scripts support three installation scopes:
+
+**System Scope (Default)**
+* Linux / MacOS: Installs to `/usr/local/bin` (requires `sudo` or appropriate permissions)
+* Windows: Installs to `${env:ProgramW6432}\HashiCorp\bin` (requires Administrator privileges)
+
+**User Scope**
+* Linux / MacOS: Use `-u` or `--user` flag to install to `${HOME}/.local/bin`
+* Windows: Use `-User` flag to install to `${env:LOCALAPPDATA}\Programs\HashiCorp\bin`
+
+**Custom Directory**
+* Linux / MacOS: Use `-d` or `--directory PATH` to specify a custom installation directory
+* Windows: Use `-Directory PATH` to specify a custom installation directory
+
+#### Examples
+
+Linux / MacOS:
+
+```shell
+# Install to system scope (default)
+./install-hashicorp.sh terraform packer
+
+# Install to user scope
+./install-hashicorp.sh -u terraform packer
+
+# Install to custom directory
+./install-hashicorp.sh -d ./example terraform packer
+
+# Install specific versions
+./install-hashicorp.sh terraform:1.5.0 packer:1.9.0
+
+# Show help
+./install-hashicorp.sh -h
+```
+
+Windows:
+
+```shell
+# Install to system scope (default, requires Administrator)
+.\install-hashicorp.ps1 terraform packer
+
+# Install to user scope
+.\install-hashicorp.ps1 -User terraform packer
+
+# Install to custom directory
+.\install-hashicorp.ps1 -Directory .\example terraform packer
+
+# Install specific versions
+.\install-hashicorp.ps1 terraform:1.5.0 packer:1.9.0
+
+# Show help
+.\install-hashicorp.ps1 -Help
 ```
 
 #### Script Details
@@ -67,16 +123,18 @@ Windows:
   * detected operating system
   * detected CPU architecture
 * Verifies system requirements
-* Verifies and imports PGP key (optional)
-* Fetchs archive, checksums and signature files
+* Checks if binary already exists with correct version (skips installation if version matches)
+* Verifies and imports PGP key (optional, on first use)
+* Fetches archive, checksums and signature files
 * Verifies checksum signature (optional)
 * Verifies archive checksum
 * Extract binary from archive
 * Verifies binary code signature (for MacOS and Windows)
-* Adds binary to system's PATH
-  * Moves binary to `/usr/local/bin` (for Linux and MacOS)
-  * Moves binary to `${env:ProgramW6432}\HashiCorp\bin` (for Windows)
-  * Adds `${env:ProgramW6432}\HashiCorp\bin` to system's PATH (for Windows)
+* Installs binary to the specified directory:
+  * System scope: `/usr/local/bin` (Linux/MacOS) or `${env:ProgramW6432}\HashiCorp\bin` (Windows)
+  * User scope: `${HOME}/.local/bin` (Linux/MacOS) or `${env:LOCALAPPDATA}\Programs\HashiCorp\bin` (Windows)
+  * Custom directory: User-specified path
+* Adds system/user scoped installation directory to system's PATH (for Windows)
 * Cleans up archive, checksums and signature files
 * Verifies binary installation
 

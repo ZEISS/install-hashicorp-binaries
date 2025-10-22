@@ -172,6 +172,24 @@ function Update-SessionEnvironment {
     if ($architecture) { $env:PROCESSOR_ARCHITECTURE = $architecture; }
 }
 
+#################################################
+# Display usage information
+#################################################
+function Show-Usage {
+    Write-Host "Usage: .\install-hashicorp.ps1 [options] <name>[:<version>] [...]"
+    Write-Host ""
+    Write-Host "Options:"
+    Write-Host "  -User               Install in user scope ($env:LOCALAPPDATA\Programs\HashiCorp\bin)"
+    Write-Host "  -Directory PATH     Install in custom directory"
+    Write-Host "  -Help               Show this help message"
+    Write-Host ""
+    Write-Host "Examples:"
+    Write-Host "  .\install-hashicorp.ps1 terraform packer             # Install to Program Files (system scope)"
+    Write-Host "  .\install-hashicorp.ps1 -User terraform              # Install to user scope"
+    Write-Host "  .\install-hashicorp.ps1 -Directory .\bin terraform   # Install to custom directory"
+    Write-Host "  .\install-hashicorp.ps1 terraform:1.5.0              # Install specific version"
+}
+
 function Invoke-QuietGPG {
     [string]$cacheErrorActionPreference = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
@@ -188,9 +206,10 @@ function Invoke-QuietGPG {
 #################################################
 # Install multiple HashiCorp binaries
 # ARGUMENTS:
+#   Installation directory
 #   <name>[:<version>] [...]
 # EXAMPLE:
-#   Install-HashiCorpBinaries packer terraform:0.14.0-rc1
+#   Install-HashiCorpBinaries "C:\Program Files\HashiCorp\bin" packer terraform:0.14.0-rc1
 # RETURN:
 #   * 0 if installation succeeded or skipped
 #   * non-zero on error
@@ -198,6 +217,8 @@ function Invoke-QuietGPG {
 function Install-HashiCorpBinaries {
     [CmdletBinding()]
     param (
+        [Parameter(Mandatory=$true, Position=0)]
+        [string]$installDir,
         [Parameter( Mandatory=$false,
         ValueFromRemainingArguments=$true )]
         [string[]]$archives
@@ -208,8 +229,9 @@ function Install-HashiCorpBinaries {
     # HashiCorp PGP key
     [string]$pgpKeystore = 'https://keybase.io/hashicorp/pgp_keys.asc'
     [string]$pgpThumbprint = 'C874011F0AB405110D02105534365D9472D7468F'
+    [bool]$pgpKeyImported = $false
     # HashiCorp Code Signature
-    [string]$codeSignThumbprint = '35AB9FC834D217E9E7B1778FB1B97AF7C73792F2'
+    [string[]]$codeSignThumbprint = @('35AB9FC834D217E9E7B1778FB1B97AF7C73792F2', '7868E4F55FD7B047CD8BF93FEA8C38509CFB5939', '6F1DCD6FE62C173708E26E25D19656E413277816')
     [string]$os = 'windows'
     [string]$arch = 'undefined'
 
@@ -240,20 +262,7 @@ function Install-HashiCorpBinaries {
         }
     }
     if (-not ([string]::IsNullOrEmpty($cmds_error))){
-        WriteError "FATAL:   Ensure system requirements are installed and added to system's PATH!${cmd_errors}"
-    }
-    if ($gpg -eq 0){
-        # Verfiy the integrity of the PGP key and import the PGP key
-        Invoke-WebRequest -UseBasicParsing -Method Get `
-        -Uri "${pgpKeystore}" -OutFile "${env:Temp}\hashicorp.asc" | `
-        Out-Null
-        if ("${pgpThumbprint}" -ne (Invoke-QuietGPG --dry-run --import --import-options import-show "${env:Temp}\hashicorp.asc" | `
-            Select-String -Pattern '^[ \t]+([ A-Z0-9]{40,})$' -AllMatches | `
-            % {$_.Matches.Groups[1]} | % {$_.Value})){
-            Write-Error "FATAL:   Integrity of the PGP key `"${pgpKeystore}`" is compromised"
-        }
-        Invoke-QuietGPG --import "${env:Temp}\hashicorp.asc"
-        Remove-Item -Force "${env:Temp}\hashicorp.asc"
+        Write-Error "ERROR:   Ensure system requirements are installed and added to system's PATH!${cmd_errors}"
     }
 
     [string[]]$verifiedArchives = @()
@@ -276,6 +285,14 @@ function Install-HashiCorpBinaries {
                 $version = "undefined"
             }
         }
+        # Check if the binary already exists with the correct version
+        [string]$currentVersion = $(try { & "${installDir}\${name}" version 2>$null } catch { "" })
+        $currentVersion = $currentVersion | Select-String -Pattern "([0-9]+\.[0-9]+\.[0-9]+[0-9a-zA-Z\.+-]*)" -AllMatches | `
+            % {$_.Matches.Groups[1]} | % {$_.Value} | Select-Object -First 1
+        if (-not [string]::IsNullOrEmpty($currentVersion) -and $currentVersion -eq $version){
+            Write-Host "Skipping ${name} (${version})"
+            continue
+        }
         # Look up the archive
         try {
             Invoke-WebRequest -UseBasicParsing -Method Head `
@@ -290,7 +307,7 @@ function Install-HashiCorpBinaries {
             Write-Host "         version:          ${version}"
             Write-Host "         operating system: ${os}"
             Write-Host "         architecture:     ${arch}"
-            continue
+            exit 1
         }
         $verifiedArchives += "${name}:${version}"
         $downloadFiles += "'${downloadUrl}/${name}/${version}/${name}_${version}_${os}_${arch}.zip', '${env:Temp}\${name}_${version}_${os}_${arch}.zip', "
@@ -300,17 +317,33 @@ function Install-HashiCorpBinaries {
         }
     }
 
-    # Download the archive, checksums and signature files
-    Write-Host "Fetching ${downloadUrl}/"
-    $downloadFiles = $downloadFiles.SubString(0, [math]::Max(0, $downloadFiles.length - 2))
-    if (-not ([string]::IsNullOrEmpty($downloadFiles))){
-        Import-ScriptsWebDownload
-        [string]$download = "[Scripts.Web]::DownloadFiles($downloadFiles)"
-        Invoke-Expression $download | Out-Null
+    if ($verifiedArchives){
+        # Download the archive, checksums and signature files
+        Write-Host "Fetching ${downloadUrl}/"
+        $downloadFiles = $downloadFiles.SubString(0, [math]::Max(0, $downloadFiles.length - 2))
+        if (-not ([string]::IsNullOrEmpty($downloadFiles))){
+            Import-ScriptsWebDownload
+            [string]$download = "[Scripts.Web]::DownloadFiles($downloadFiles)"
+            Invoke-Expression $download | Out-Null
+        }
     }
 
     foreach ($archive in $verifiedArchives){
         [string]$name, [string]$version = "$archive" -split ":"
+        if ($gpg -eq 0 -and -not $pgpKeyImported){
+            # Verfiy the integrity of the PGP key and import the PGP key
+            Invoke-WebRequest -UseBasicParsing -Method Get `
+            -Uri "${pgpKeystore}" -OutFile "${env:Temp}\hashicorp.asc" | `
+            Out-Null
+            if ("${pgpThumbprint}" -ne (Invoke-QuietGPG --dry-run --import --import-options import-show "${env:Temp}\hashicorp.asc" | `
+                Select-String -Pattern '^[ \t]+([ A-Z0-9]{40,})$' -AllMatches | `
+                % {$_.Matches.Groups[1]} | % {$_.Value})){
+                Write-Error "ERROR:   Integrity of the PGP key `"${pgpKeystore}`" is compromised"
+            }
+            Invoke-QuietGPG --import "${env:Temp}\hashicorp.asc"
+            $pgpKeyImported = $true
+            Remove-Item -Force "${env:Temp}\hashicorp.asc"
+        }
         Write-Host "Installing ${name} (${version})"
         if ($gpg -eq 0){
             # Verify the integrity of the checksums file
@@ -323,7 +356,7 @@ function Install-HashiCorpBinaries {
         [string]$regex = "^([A-Fa-f0-9]{64}).*${name}_${version}_${os}_${arch}\.zip$"
         if ($checksum -ne (Get-Content -Path "${env:Temp}\${name}_${version}_SHA256SUMS" | `
             Select-String -Pattern $regex -AllMatches | % {$_.Matches.Groups[1]} | % {$_.Value})){
-            Write-Error "FATAL:   Integrity of the archive `"${name}_${version}_${os}_${arch}.zip`" is compromised"
+            Write-Error "ERROR:   Integrity of the archive `"${name}_${version}_${os}_${arch}.zip`" is compromised"
         }
         # Clean up the checksums file
         Remove-Item -Force "${env:Temp}\${name}_${version}_SHA256SUMS"
@@ -332,28 +365,83 @@ function Install-HashiCorpBinaries {
         # Clean up the archive
         Remove-Item -Force "${env:Temp}\${name}_${version}_${os}_${arch}.zip"
         # Verify the integrity of the executable
-        if ($codeSignThumbprint -ne ((Get-AuthenticodeSignature -FilePath "${env:Temp}\${name}.exe").SignerCertificate).thumbprint){
-            Write-Error "FATAL:   Integrity of the executable `"${name}.exe`" is compromised"
+        if (((Get-AuthenticodeSignature -FilePath "${env:Temp}\${name}.exe").SignerCertificate).thumbprint -notin $codeSignThumbprint){
+            Write-Error "ERROR:   Integrity of the executable `"${name}.exe`" is compromised"
         }
-        # Add the executable to system's PATH
-        if (-not (Test-Path "${env:ProgramW6432}\HashiCorp\bin")){
-            New-Item -ItemType Directory -Force -Path "${env:ProgramW6432}\HashiCorp\bin" | Out-Null
+        # Ensure the installation directory exists
+        if (-not (Test-Path "${installDir}")){
+            New-Item -ItemType Directory -Force -Path "${installDir}" | Out-Null
         }
-        Move-Item -Force -Path "${env:Temp}\${name}.exe" "${env:ProgramW6432}\HashiCorp\bin\${name}.exe"
-        Update-SessionEnvironment
-        if (-not ("$env:PATH" -match [Regex]::Escape("${env:ProgramW6432}\HashiCorp\bin"))){
-            SETX /M PATH ('{0};{1};' -f "${env:PATH}", "${env:ProgramW6432}\HashiCorp\bin") | Out-Null
-        }
+        # Add the executable to the specified directory
+        Move-Item -Force -Path "${env:Temp}\${name}.exe" "${installDir}\${name}.exe"
         # Verify the CLI installation
-        Update-SessionEnvironment
-        $verify = Invoke-Expression "${name} version"
-        $verify = $verify | Select-String -Pattern "^.*([0-9]+\.[0-9]+\.[0-9]+[0-9a-zA-Z\.+-]*).*$" -AllMatches | `
+        $verify = $(try { & "${installDir}\${name}" version 2>$null } catch { "" })
+        $verify = $verify | Select-String -Pattern "([0-9]+\.[0-9]+\.[0-9]+[0-9a-zA-Z\.+-]*)" -AllMatches | `
             % {$_.Matches.Groups[1]} | % {$_.Value} | Select-Object -First 1
         if ("${verify}" -ne "${version}"){
-            Write-Host "WARNING: Another executable file is prioritized when the command `"${name}`" is executed"
-            Write-Host "         Check your system's PATH!"
+            Write-Error "ERROR:   Verifying the installed version failed."
+        }
+        # Check if the command is available in PATH
+        Update-SessionEnvironment
+        $verify = $(try { & "${name} version" 2>$null } catch { "" })
+        $verify = $verify | Select-String -Pattern "([0-9]+\.[0-9]+\.[0-9]+[0-9a-zA-Z\.+-]*)" -AllMatches | `
+            % {$_.Matches.Groups[1]} | % {$_.Value} | Select-Object -First 1
+        if ("${verify}" -ne "${version}"){
+            Write-Host "WARNING: Command `"${name}`" is not using installed version. Check the system's PATH!"
         }
     }
 }
 
-Install-HashiCorpBinaries @args
+#################################################
+# Main script logic with argument parsing
+#################################################
+function Main {
+    [CmdletBinding(PositionalBinding=$false)]
+    param (
+        [Parameter(Mandatory=$false)]
+        [switch]$User,
+        [Parameter(Mandatory=$false)]
+        [string]$Directory,
+        [Parameter(Mandatory=$false)]
+        [switch]$Help,
+        [Parameter( Mandatory=$false,
+        ValueFromRemainingArguments=$true )]
+        [string[]]$Binaries
+    )
+    # Show help if requested
+    if ($Help){
+        Show-Usage
+        exit 0
+    }
+    # Check if any binaries were specified
+    if ($Binaries.Count -eq 0){
+        Write-Host "ERROR:   No binaries specified"
+        Show-Usage
+        exit 1
+    }
+    # Determine installation directory based on options
+    [string]$installDir = "${env:ProgramW6432}\HashiCorp\bin"  # Default system scope
+    if ($PSBoundParameters.ContainsKey('Directory') -and -not [string]::IsNullOrWhiteSpace($Directory) -and -not [string]::IsNullOrEmpty($Directory)){
+        # Custom directory scope
+        $installDir = [System.IO.Path]::GetFullPath($Directory)
+    }
+    elseif ($User -or -not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)){
+        # User scope
+        $installDir = "${env:LOCALAPPDATA}\Programs\HashiCorp\bin"
+        Update-SessionEnvironment
+        if (-not ("$env:PATH" -match [Regex]::Escape("${installDir}"))){
+            SETX PATH ('{0};{1};' -f "${env:PATH}", "${installDir}") | Out-Null
+        }
+    }
+    else {
+        # System scope
+        Update-SessionEnvironment
+        if (-not ("$env:PATH" -match [Regex]::Escape("${installDir}"))){
+            SETX /M PATH ('{0};{1};' -f "${env:PATH}", "${installDir}") | Out-Null
+        }
+    }
+    # Call the installation function
+    Install-HashiCorpBinaries -InstallDir $installDir @Binaries
+}
+
+Main @args

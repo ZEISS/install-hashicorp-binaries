@@ -209,7 +209,7 @@ install_hashicorp_binaries(){
         fi
         verify="$(${name} version 2>/dev/null | sed -En 's/^.*([0-9]+\.[0-9]+\.[0-9]+[0-9a-zA-Z\.+-]*).*$/\1/p' | sed -n '1p' || true)"
         if [ "${verify}" != "${version}" ]; then
-            echo "INFO: Command \"${name}\" is not using installed binary. Check the system's PATH!"
+            echo "INFO: Command \"${name}\" is not using installed version. Check the system's PATH!"
         fi
     done
     rm -rf "$tmp_dir"

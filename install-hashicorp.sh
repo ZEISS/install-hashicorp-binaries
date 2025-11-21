@@ -202,14 +202,14 @@ install_hashicorp_binaries(){
         # Add the executable to the specified directory
         mv -f "${tmp_dir}/${name}" "${install_dir}/${name}"
         # Verify the installation
-        verify="$("${install_dir}/"${name} version | sed -En 's/^.*([0-9]+\.[0-9]+\.[0-9]+[0-9a-zA-Z\.+-]*).*$/\1/p' | sed -n '1p' || true)"
+        verify="$("${install_dir}/"${name} version 2>/dev/null | sed -En 's/^.*([0-9]+\.[0-9]+\.[0-9]+[0-9a-zA-Z\.+-]*).*$/\1/p' | sed -n '1p' || true)"
         if [ "${verify}" != "${version}" ]; then
             echo >&2 "ERROR:   Verifying the installed version failed."
             exit 1
         fi
-        verify="$(${name} version | sed -En 's/^.*([0-9]+\.[0-9]+\.[0-9]+[0-9a-zA-Z\.+-]*).*$/\1/p' | sed -n '1p' || true)"
+        verify="$(${name} version 2>/dev/null | sed -En 's/^.*([0-9]+\.[0-9]+\.[0-9]+[0-9a-zA-Z\.+-]*).*$/\1/p' | sed -n '1p' || true)"
         if [ "${verify}" != "${version}" ]; then
-            echo >&2 "WARNING: Command \"${name}\" is not using installed version. Check the system's PATH!"
+            echo "INFO: Command \"${name}\" is not using installed version. Check the system's PATH!"
         fi
     done
     rm -rf "$tmp_dir"

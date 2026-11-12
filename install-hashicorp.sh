@@ -22,6 +22,9 @@ usage() {
 quiet_gpg() {
     local catch_err=0
     local tmp_dir="${TMPDIR:-/tmp}/install-hashicorp-binaries"
+    local gpg_home="${GNUPGHOME:-${HOME}/.gnupg}"
+    mkdir -p "${gpg_home}"
+    chmod 700 "${gpg_home}"
     set +e
     gpg --quiet "$@" 2> "${tmp_dir}/gpg.error.log"
     catch_err=$?
